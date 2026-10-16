@@ -717,6 +717,55 @@ static void ReplaceMOVNTSD(void* address, const ZydisDecodedInstruction&,
 }
 
 #if defined(__APPLE__)
+static bool Filter256BitUnalignedStore(const ZydisDecodedOperand* operands) {
+    const auto& dst = operands[0];
+    const auto& src = operands[1];
+    if (dst.type != ZYDIS_OPERAND_TYPE_MEMORY || dst.size != 256 ||
+        src.type != ZYDIS_OPERAND_TYPE_REGISTER || src.reg.value < ZYDIS_REGISTER_YMM0 ||
+        src.reg.value > ZYDIS_REGISTER_YMM15) {
+        return false;
+    }
+
+    const auto is_64_bit_address_register = [](ZydisRegister reg) {
+        return reg == ZYDIS_REGISTER_NONE ||
+               (reg >= ZYDIS_REGISTER_RAX && reg <= ZYDIS_REGISTER_R15);
+    };
+    const bool rip_relative = dst.mem.base == ZYDIS_REGISTER_RIP;
+    if (!rip_relative &&
+        (!is_64_bit_address_register(dst.mem.base) ||
+         !is_64_bit_address_register(dst.mem.index) ||
+         (dst.mem.base == ZYDIS_REGISTER_NONE && dst.mem.index == ZYDIS_REGISTER_NONE) ||
+         dst.mem.disp.value > INT32_MAX - 16)) {
+        LOG_WARNING(Core, "Cannot split 256-bit VMOVUPS store with unsupported addressing");
+        return false;
+    }
+    return true;
+}
+
+static void Generate256BitUnalignedStore(void* address,
+                                         const ZydisDecodedInstruction& instruction,
+                                         const ZydisDecodedOperand* operands,
+                                         Xbyak::CodeGenerator& c) {
+    const auto src = ZydisToXbyakRegisterOperand(operands[1]);
+    auto upper_dst = operands[0];
+    upper_dst.mem.disp.value += 16;
+    upper_dst.mem.disp.size = 32;
+    const auto put_segment = [&] {
+        if (operands[0].mem.segment == ZYDIS_REGISTER_FS) {
+            c.putSeg(fs);
+        } else if (operands[0].mem.segment == ZYDIS_REGISTER_GS) {
+            c.putSeg(gs);
+        }
+    };
+
+    put_segment();
+    c.vmovups(ZydisToXbyakMemoryOperand(address, instruction, operands[0]),
+              Xbyak::Xmm(src.getIdx()));
+    put_segment();
+    c.vextractf128(ZydisToXbyakMemoryOperand(address, instruction, upper_dst),
+                   Xbyak::Ymm(src.getIdx()), 1);
+}
+
 // Rosetta 2 mistranslates VCMPSS with NEQ, NLT or NLE: if the destination is then reloaded by a
 // full width VEX load, later scalar reads of it still return the compare mask.
 static bool FilterNegatedScalarCompare(const ZydisDecodedOperand* operands) {
@@ -785,6 +834,8 @@ static const std::unordered_map<ZydisMnemonic, std::vector<PatchInfo>> Patches =
 
 #if defined(__APPLE__)
     // Rosetta 2
+    {ZYDIS_MNEMONIC_VMOVUPS,
+     {{Filter256BitUnalignedStore, Generate256BitUnalignedStore, true}}},
     {ZYDIS_MNEMONIC_VCMPSS, {{FilterNegatedScalarCompare, GenerateNegatedScalarCompare, true}}},
 #else
     // FS segment patches
@@ -1730,6 +1781,11 @@ void AnalyzeRedZoneLiveness(DecodedFunction& function) {
 
 bool EncodeRelocatedInstruction(const DecodedCodeInstruction& decoded,
                                 Xbyak::CodeGenerator& generator) {
+    if (decoded.instruction.mnemonic == ZYDIS_MNEMONIC_NOP) {
+        generator.nop(decoded.instruction.length);
+        return true;
+    }
+
     ZydisEncoderRequest request;
     if (!ZYAN_SUCCESS(ZydisEncoderDecodedInstructionToEncoderRequest(
             &decoded.instruction, decoded.operands.data(),
@@ -2398,6 +2454,32 @@ static u8* FindSSE4aInstructionStart(u8* opcode, const u8* lower_bound) {
 }
 
 #if defined(__APPLE__)
+static u8* Find256BitUnalignedStoreInstructionStart(u8* opcode, const u8* lower_bound) {
+    if (opcode[0] != 0x11) {
+        return nullptr;
+    }
+    u8* start = nullptr;
+    if (opcode - 2 >= lower_bound && opcode[-2] == 0xC5 && (opcode[-1] & 0x7F) == 0x7C) {
+        start = opcode - 2;
+    }
+    if (opcode - 3 >= lower_bound && opcode[-3] == 0xC4 && (opcode[-2] & 0x1F) == 0x1 &&
+        (opcode[-1] & 0x7F) == 0x7C) {
+        start = opcode - 3;
+    }
+    if (start == nullptr) {
+        return nullptr;
+    }
+    while (start > lower_bound && opcode - start < ZYDIS_MAX_INSTRUCTION_LENGTH - 2) {
+        const u8 prefix = start[-1];
+        if (prefix != 0x26 && prefix != 0x2E && prefix != 0x36 && prefix != 0x3E &&
+            prefix != 0x64 && prefix != 0x65 && prefix != 0x67) {
+            break;
+        }
+        --start;
+    }
+    return start;
+}
+
 /// Returns the start of the VEX encoded VCMPSS whose opcode is at the given address, or null if
 /// the bytes before it are not its VEX prefix.
 static u8* FindScalarCompareInstructionStart(u8* opcode, const u8* lower_bound) {
@@ -2432,6 +2514,10 @@ static void PatchUncoveredCpuInstructions(u64 segment_addr, const AddressRanges&
         for (uintptr_t address = gap_start; address + 2 <= gap_end; ++address) {
             u8* start = FindSSE4aInstructionStart(reinterpret_cast<u8*>(address), lower_bound);
 #if defined(__APPLE__)
+            if (start == nullptr) {
+                start = Find256BitUnalignedStoreInstructionStart(reinterpret_cast<u8*>(address),
+                                                                lower_bound);
+            }
             if (start == nullptr) {
                 start =
                     FindScalarCompareInstructionStart(reinterpret_cast<u8*>(address), lower_bound);
@@ -2509,9 +2595,21 @@ static bool PatchesIllegalInstructionHandler(void* context) {
             if (ZYAN_SUCCESS(status)) {
                 const auto disassembled = Common::Decoder::Instance()->disassembleInst(
                     instruction, operands, std::bit_cast<u64>(code_address));
-                LOG_ERROR(Core, "Failed to patch address {:x} -- mnemonic: {}, instruction: {}",
+                std::array<char, ZYDIS_MAX_INSTRUCTION_LENGTH * 3 + 1> raw_bytes{};
+                constexpr char HexDigits[] = "0123456789abcdef";
+                const auto* code = static_cast<const u8*>(code_address);
+                const size_t length =
+                    std::min<size_t>(instruction.length, ZYDIS_MAX_INSTRUCTION_LENGTH);
+                for (size_t index = 0; index < length; ++index) {
+                    raw_bytes[index * 3] = HexDigits[code[index] >> 4];
+                    raw_bytes[index * 3 + 1] = HexDigits[code[index] & 0xF];
+                    raw_bytes[index * 3 + 2] = index + 1 < length ? ' ' : '\0';
+                }
+                LOG_ERROR(Core,
+                          "Failed to patch address {:x} -- mnemonic: {}, instruction: {}, bytes: {}",
                           reinterpret_cast<u64>(code_address),
-                          ZydisMnemonicGetString(instruction.mnemonic), disassembled);
+                          ZydisMnemonicGetString(instruction.mnemonic), disassembled,
+                          raw_bytes.data());
             } else {
                 LOG_ERROR(Core, "Failed to patch address {:x} -- mnemonic: (failed to decode)",
                           reinterpret_cast<u64>(code_address));

@@ -25,9 +25,11 @@
 
 #if defined(__APPLE__) && defined(ARCH_X86_64)
 // Reserve space for the system address space using a zerofill section.
-asm(".zerofill SYSTEM_MANAGED,SYSTEM_MANAGED,__SYSTEM_MANAGED,0x7FFBFC000");
-asm(".zerofill SYSTEM_RESERVED,SYSTEM_RESERVED,__SYSTEM_RESERVED,0x7C0004000");
-asm(".zerofill USER_AREA,USER_AREA,__USER_AREA,0x5F9000000000");
+asm(".zerofill SYSTEM_MANAGED,SYSTEM_MANAGED,__SYSTEM_MANAGED,0x7FFBFC000\n"
+    ".no_dead_strip __SYSTEM_MANAGED");
+asm(".zerofill SYSTEM_RESERVED,SYSTEM_RESERVED,__SYSTEM_RESERVED,0x7C0004000\n"
+    ".no_dead_strip __SYSTEM_RESERVED");
+asm(".zerofill USER_AREA,USER_AREA,__USER_AREA,0x5F9000000000\n.no_dead_strip __USER_AREA");
 #endif
 
 namespace Core {
