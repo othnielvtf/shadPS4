@@ -3,209 +3,101 @@ SPDX-FileCopyrightText: 2026 shadPS4 Emulator Project
 SPDX-License-Identifier: GPL-2.0-or-later
 -->
 
-<h1 align="center">
-  <br>
-  <a href="https://shadps4.net/"><img src="https://github.com/shadps4-emu/shadPS4/blob/main/.github/shadps4.png" width="220"></a>
-  <br>
-  <b>shadPS4</b>
-  <br>
-</h1>
-
-<h1 align="center">
- <a href="https://discord.gg/bFJxfftGW6">
-        <img src="https://img.shields.io/discord/1080089157554155590?color=5865F2&label=shadPS4%20Discord&logo=Discord&logoColor=white" width="275">
- <a href="https://github.com/shadps4-emu/shadPS4/releases/latest">
-        <img src="https://img.shields.io/github/downloads/shadps4-emu/shadPS4/total.svg" width="140">
- <a href="https://shadps4.net/">
-        <img src="https://img.shields.io/badge/shadPS4-website-8A2BE2" width="150">
- <a href="https://x.com/shadps4">
-        <img src="https://img.shields.io/badge/-Join%20us-black?logo=X&logoColor=white" width="100">
- <a href="https://github.com/shadps4-emu/shadPS4/stargazers">
-        <img src="https://img.shields.io/github/stars/shadps4-emu/shadPS4" width="120">
-</h1>
-
-|               Bloodborne by From Software                   |                     Hatsune Miku Project DIVA Future Tone by SEGA                         |
-| :-----------------------------------------------------------: | :--------------------------------------------------------------------------------------------: |
-| ![Bloodborne screenshot](./documents/Screenshots/1.png) | ![Project DIVA screenshot](./documents/Screenshots/2.png) |
-
-|                  Yakuza 0 by SEGA                     |                 DRIVECLUB™ by Evolution Studios                    |
-| :------------------------------------------------------------------------: | :------------------------------------------------------------------: |
-| ![Yakuza screenshot](./documents/Screenshots/3.png) | ![DRIVECLUB screenshot](./documents/Screenshots/4.png) |
-
-# General information
-
-**shadPS4** is an early **PlayStation 4** emulator for **Windows**, **Linux** and **macOS** written in C++.
+# shadPS4 — Development Fork
 
 > [!IMPORTANT]
-> This is the emulator core, which does not include a GUI. If you just want to use the emulator as an end user, download the [**QtLauncher**](https://github.com/shadps4-emu/shadps4-qtlauncher/releases) instead.
+> **For development, debugging, and experimental testing only.**
+> This is a personal, unofficial fork of [shadPS4](https://github.com/shadps4-emu/shadPS4),
+> maintained to investigate macOS compatibility issues and prepare potential upstream contributions.
+> It is not an official shadPS4 release or a stable end-user distribution.
 
-If you encounter problems or have doubts, do not hesitate to look at the [**Quickstart**](https://github.com/shadps4-emu/shadPS4/wiki/I.-Quick-start-%5BUsers%5D).\
-To verify that a game works, you can look at [**shadPS4 Game Compatibility**](https://github.com/shadps4-compatibility/shadps4-game-compatibility).\
-To discuss shadPS4 development, suggest ideas or to ask for help, join our [**Discord server**](https://discord.gg/bFJxfftGW6).\
-To get the latest news, go to our [**X (Twitter)**](https://x.com/shadps4) or our [**website**](https://shadps4.net/).\
-You can donate to the project via our [**Kofi page**](https://ko-fi.com/shadps4).
+**Full credit for the original project goes to the shadPS4 team and its contributors.**
+All rights to the original code, project name, logos, games, and third-party assets remain
+with their respective copyright and trademark owners. This fork does not claim ownership
+of the upstream project or imply endorsement by its maintainers.
 
-# Status
+[Original project](https://github.com/shadps4-emu/shadPS4) ·
+[Official website](https://shadps4.net/) ·
+[Upstream contributors](https://github.com/shadps4-emu/shadPS4/graphs/contributors) ·
+[License](LICENSE)
 
-> [!IMPORTANT]
-> shadPS4 is early in development, don't expect a flawless experience.
+## Purpose
 
-Currently, the emulator can successfully run games like [**Bloodborne**](https://www.youtube.com/watch?v=5sZgWyVflFM), [**Dark Souls Remastered**](https://www.youtube.com/watch?v=-3PA-Xwszts), [**Red Dead Redemption**](https://www.youtube.com/watch?v=Al7yz_5nLag), and many other games.
+This repository is a workspace for investigating crashes, testing changes, and preparing
+small, reviewable fixes for shadPS4. Current work focuses on Apple Silicon Macs running
+the x86_64 emulator through Rosetta:
 
-# Why
+- Emit standard NOP sequences when relocating guest code.
+- Work around affected 256-bit AVX stores under Rosetta.
+- Retain existing macOS memory reservations during optimized linking.
 
-This project began for fun. Given our limited free time, it may take some time before shadPS4 can run more complex games, but we're committed to making small, regular updates.
+Cuphead is a reproduction and testing case for these emulator changes. This is not a
+Cuphead source-code project, and the fixes do not special-case the game.
 
-# Building
+## Branches
 
-## Docker
+| Branch | Contents |
+| --- | --- |
+| [`main`](https://github.com/othnielvtf/shadPS4/tree/main) | Upstream baseline with this fork's development README. |
+| [`fix/canonical-relocated-nops`](https://github.com/othnielvtf/shadPS4/tree/fix/canonical-relocated-nops) | Independent NOP relocation fix. |
+| [`fix/macos-reserved-sections`](https://github.com/othnielvtf/shadPS4/tree/fix/macos-reserved-sections) | Independent macOS reservation retention fix. |
+| [`fix/rosetta-avx-stores`](https://github.com/othnielvtf/shadPS4/tree/fix/rosetta-avx-stores) | AVX store workaround, based on the NOP fix. |
+| [`macos-cuphead-tested`](https://github.com/othnielvtf/shadPS4/tree/macos-cuphead-tested) | All three fixes combined; source used for local gameplay validation. |
 
-For building shadPS4 in a containerized environment using Docker and VSCode, check the instructions here:  
-[**Docker Build Instructions**](https://github.com/shadps4-emu/shadPS4/blob/main/documents/building-docker.md)
+The focused fix branches are kept separate from this fork-specific README for upstream review.
 
-## Windows
+## Validation and limitations
 
-Check the build instructions for [**Windows**](https://github.com/shadps4-emu/shadPS4/blob/main/documents/building-windows.md).
+The combined changes were built locally for macOS x86_64 in Release mode with ThinLTO.
+Testing used an Apple M5 Pro running macOS 26.6.2 and Cuphead CUSA20499, base version 1.00.
 
-## Linux
+Opening gameplay checks covered the title screen, save loading, map movement, Forest Follies,
+shooting, jumping, damage, death, retry, the game's pause menu, and returning to the map.
 
-Check the build instructions for [**Linux**](https://github.com/shadps4-emu/shadPS4/blob/main/documents/building-linux.md).
+- The whole game, updates, and DLC have not been tested.
+- The separate fix branches have not each been validated as standalone full game builds.
+- Observed FPS samples around 40–60 are not a controlled benchmark or a claimed speed increase.
+- One diagnostic run stalled after repeated emulator F9 pause/resume. A fresh run using the
+  game's normal pause menu returned to the map successfully; the earlier stall's cause is unproven.
+- Instruction probes were run on macOS. The prepared OpenOrbis test sources have not been
+  built or run on PS4 hardware.
 
-## macOS
+These results describe this experimental fork and do not establish official upstream compatibility.
 
-Check the build instructions for [**macOS**](https://github.com/shadps4-emu/shadPS4/blob/main/documents/building-macos.md).
+## Development resources
 
-> [!IMPORTANT]
-> macOS users need at least macOS 26.0 to run shadPS4. Intel Macs are not supported.
+Start with the original project's documentation:
 
-# Usage examples
+- [macOS build instructions](https://github.com/shadps4-emu/shadPS4/blob/main/documents/building-macos.md)
+- [Debugging and reporting issues](https://github.com/shadps4-emu/shadPS4/blob/main/documents/Debugging/Debugging.md)
+- [Contribution guidelines](https://github.com/shadps4-emu/shadPS4/blob/main/CONTRIBUTING.md)
+- [Official game compatibility tracker](https://github.com/shadps4-compatibility/shadps4-game-compatibility)
 
-> [!IMPORTANT]
-> For a user-friendly GUI, download the [**QtLauncher**](https://github.com/shadps4-emu/shadps4-qtlauncher/releases).
+For normal emulator use, refer to the [official QtLauncher releases](https://github.com/shadps4-emu/shadps4-qtlauncher/releases)
+and [upstream quick start](https://github.com/shadps4-emu/shadPS4/wiki/I.-Quick-start-%5BUsers%5D).
 
-To get the list of all available commands and also a more detailed description of what each command does, please refer to the `--help` flag's output.
+AI assistance was used for implementation, analysis, and local testing of the experimental
+changes. Any upstream submission must follow the project's requirements for disclosure,
+human review, understanding of the code, and human-written PR descriptions.
 
-Below is a list of commonly used command patterns:
-```sh
-shadPS4 CUSA00001 # Searches for a game folder called CUSA00001 in the list of game install folders, and boots it.
-shadPS4 --fullscreen true --config-clean CUSA00001    # the game argument is always the last one,
-shadPS4 -g CUSA00001 --fullscreen true --config-clean # ...unless manually specified otherwise.
-shadPS4 /path/to/game.elf # Boots a PS4 ELF file directly. Useful if you want to boot an executable that is not named eboot.bin.
-shadPS4 CUSA00001 -- -flag1 -flag2 # Passes '-flag1' and '-flag2' to the game executable in argv.
-```
+## Credits and ownership
 
-# Debugging and reporting issues
+shadPS4 is the work of the [upstream shadPS4 team](https://github.com/shadps4-emu/shadPS4#main-team)
+and [all project contributors](https://github.com/shadps4-emu/shadPS4/graphs/contributors).
+The original shadPS4 logo is credited upstream to [Xphalnos](https://github.com/Xphalnos).
 
-For more information on how to test, debug and report issues with the emulator or games, read the [**Debugging documentation**](https://github.com/shadps4-emu/shadPS4/blob/main/documents/Debugging/Debugging.md).
+The upstream project also acknowledges Panda3DS, fpPS4, yuzu, felix86, and emudev.org.
+See the [original acknowledgements](https://github.com/shadps4-emu/shadPS4#special-thanks),
+[third-party license files](LICENSES), and notices accompanying dependencies in [`externals`](externals).
 
-# Keyboard and Mouse Mappings
+Games, firmware, names, trademarks, and third-party assets belong to their respective owners.
+No ownership of those materials is claimed by this fork.
 
-> [!NOTE]
-> Some keyboards may also require you to hold the Fn key to use the F\* keys. Mac users should use the Command key instead of Control, and need to use Command+F11 for full screen to avoid conflicting with system key bindings.
+## License
 
-| Button | Function |
-|-------------|-------------|
-F10 | FPS Counter
-Ctrl+F10 | Video Debug Info
-F11 | Fullscreen
-F12 | Trigger RenderDoc Capture (or game-only screenshot if RenderDoc is unavailable)
-Alt+F12 | Capture screenshot including HUD/dialog overlays
+The existing shadPS4 copyright notices and **GPL-2.0-or-later** licensing remain in place.
+See [LICENSE](LICENSE), the source-file headers, and individual dependency notices for the
+applicable terms. All rights remain with the respective rights holders, subject to those licenses.
 
-> [!NOTE]
-> Xbox and DualShock controllers work out of the box.
-
-| Controller button | Keyboard equivalent |
-|-------------|-------------|
-LEFT AXIS UP | W |
-LEFT AXIS DOWN | S |
-LEFT AXIS LEFT | A |
-LEFT AXIS RIGHT | D |
-RIGHT AXIS UP | I |
-RIGHT AXIS DOWN | K |
-RIGHT AXIS LEFT | J |
-RIGHT AXIS RIGHT | L |
-TRIANGLE | Numpad 8 or C |
-CIRCLE | Numpad 6 or B |
-CROSS | Numpad 2 or N |
-SQUARE | Numpad 4 or V |
-PAD UP | UP |
-PAD DOWN | DOWN |
-PAD LEFT | LEFT |
-PAD RIGHT | RIGHT |
-OPTIONS | RETURN |
-BACK BUTTON / TOUCH PAD | SPACE |
-L1 | Q |
-R1 | U |
-L2 | E |
-R2 | O |
-L3 | X |
-R3 | M |
-
-Keyboard and mouse inputs can be customized in the settings menu by clicking the Controller button, and further details and help on controls are  also found there. Custom bindings are saved per-game. Inputs support up to three keys per binding, mouse buttons, mouse movement mapped to joystick input, and more.
-
-
-# Firmware files
-
-shadPS4 can load some PlayStation 4 firmware files.
-The following firmware modules are supported and must be placed in shadPS4's `sys_modules` folder.
-
-<div align="center">
-
-| Modules                        | Modules                        | Modules                        | Modules                        |
-|--------------------------------|--------------------------------|--------------------------------|--------------------------------|
-| libSceAt9Enc.sprx              | libSceAudiodec.sprx            | libSceAudiodecCpu.sprx         | libSceAudiodecCpuDdp.sprx      |
-| libSceAudiodecCpuDtsHdLbr.sprx | libSceAudiodecCpuHevag.sprx    | libSceAudiodecCpuM4aac.sprx    | libSceAvPlayer.sprx            |
-| libSceAvPlayerStreaming.sprx   | libSceBeisobmf.sprx            | libSceBemp2sys.sprx            | libSceCesCs.sprx               |
-| libSceFont.sprx                | libSceFontFt.sprx              | libSceFreeTypeOl.sprx          | libSceFreeTypeOptOl.sprx       |
-| libSceFreeTypeOt.sprx          | libSceJpegDec.sprx             | libSceJpegEnc.sprx             | libSceJson.sprx                |
-| libSceJson2.sprx               | libSceLibcInternal.sprx        | libSceNgs2.sprx                | libScePngEnc.sprx              |
-| libScePsmKitSystem.sprx        | libSceRtc.sprx                 | libSceRudp.sprx                | libSceSystemGesture.sprx       |
-| libSceUlt.sprx                 | libSceWkFontConfig.sprx        | libSceXml.sprx                 | libSceDepth.sprx               |
-| libScePadTracker.sprx          | libSceMoveTracker.sprx         |
-</div>
-
-> [!Caution]
-> The above modules are required to run the games properly and must be dumped from your legally owned PlayStation 4 console.
-
-
-
-# Main team
-
-- [**georgemoralis**](https://github.com/georgemoralis)
-- [**psucien**](https://github.com/psucien)
-- [**viniciuslrangel**](https://github.com/viniciuslrangel)
-- [**roamic**](https://github.com/roamic)
-- [**squidbus**](https://github.com/squidbus)
-- [**frodo**](https://github.com/baggins183)
-- [**Stephen Miller**](https://github.com/StevenMiller123)
-- [**kalaposfos13**](https://github.com/kalaposfos13)
-
-Logo is done by [**Xphalnos**](https://github.com/Xphalnos)
-
-<a href="https://github.com/shadps4-emu/shadPS4/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=shadps4-emu/shadPS4&max=24">
-</a>
-
-# Contributing
-
-If you want to contribute, please read the [**CONTRIBUTING.md**](https://github.com/shadps4-emu/shadPS4/blob/main/CONTRIBUTING.md) file.\
-Open a PR and we'll check it :)
-
-
-# Special Thanks
-
-A few noteworthy teams/projects who've helped us along the way are:
-
-- [**Panda3DS**](https://github.com/wheremyfoodat/Panda3DS): A multiplatform 3DS emulator from our co-author wheremyfoodat. They have been incredibly helpful in understanding and solving problems that came up from natively executing the x64 code of PS4 binaries
-
-- [**fpPS4**](https://github.com/red-prig/fpPS4): The fpPS4 team has assisted massively with understanding some of the more complex parts of the PS4 operating system and libraries, by helping with reverse engineering work and research.
-
-- **yuzu**: Our shader compiler has been designed with yuzu's Hades compiler as a blueprint. This allowed us to focus on the challenges of emulating a modern AMD GPU while having a high-quality optimizing shader compiler implementation as a base.
-
-- [**felix86**](https://github.com/OFFTKP/felix86): A new x86-64 → RISC-V Linux userspace emulator
-
-- [**emudev.org**](https://emudev.org/): A network of people interested in the documentation, emulation, simulation and re-implementation of hardware near extinction . Belongs to my friend skmp and me (shadow) also a member of it
-
-# License
-
-- [**GPL-2.0 license**](https://github.com/shadps4-emu/shadPS4/blob/main/LICENSE)
+The development-only notice describes this fork's intended purpose; it does not change
+the rights granted by the existing licenses.
