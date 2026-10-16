@@ -1730,6 +1730,11 @@ void AnalyzeRedZoneLiveness(DecodedFunction& function) {
 
 bool EncodeRelocatedInstruction(const DecodedCodeInstruction& decoded,
                                 Xbyak::CodeGenerator& generator) {
+    if (decoded.instruction.mnemonic == ZYDIS_MNEMONIC_NOP) {
+        generator.nop(decoded.instruction.length);
+        return true;
+    }
+
     ZydisEncoderRequest request;
     if (!ZYAN_SUCCESS(ZydisEncoderDecodedInstructionToEncoderRequest(
             &decoded.instruction, decoded.operands.data(),
