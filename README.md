@@ -38,7 +38,7 @@ Cuphead source-code project, and the fixes do not special-case the game.
 
 | Branch | Contents |
 | --- | --- |
-| [`main`](https://github.com/othnielvtf/shadPS4/tree/main) | Upstream baseline with this fork's development README. |
+| [`main`](https://github.com/othnielvtf/shadPS4/tree/main) | Latest checked upstream baseline plus all three experimental macOS fixes and this fork's development README. |
 | [`fix/canonical-relocated-nops`](https://github.com/othnielvtf/shadPS4/tree/fix/canonical-relocated-nops) | Independent NOP relocation fix. |
 | [`fix/macos-reserved-sections`](https://github.com/othnielvtf/shadPS4/tree/fix/macos-reserved-sections) | Independent macOS reservation retention fix. |
 | [`fix/rosetta-avx-stores`](https://github.com/othnielvtf/shadPS4/tree/fix/rosetta-avx-stores) | AVX store workaround, based on the NOP fix. |
